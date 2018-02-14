@@ -63,7 +63,7 @@ class Seq2seq(chainer.Chain):
         self.denoising_rate = denoising_rate
         self.n_latent = n_latent
         self.C = 0
-        self.k = 5 # 10
+        self.k = 10 # unstable if 5
         self.n_target_vocab = n_target_vocab
         
 
@@ -509,13 +509,8 @@ def main():
 
     @chainer.training.make_extension()
     def fit_C(trainer):
-        # if updater.epoch < 10:
-        #     model.C = 0.0
-        # else:
-        #     model.C = 0.06 * (updater.epoch - 10) / args.epoch
-        #if model.C < 0.5 and updater.epoch > 10:
-        if model.C < 0.5:
-            model.C += 0.001
+        if model.C < 0.5 and updater.epoch > 5:
+            model.C += 0.002
         print('epoch: {}, C: {},'.format(updater.epoch, model.C))
 
     trainer.extend(fit_C, trigger=(1000, 'iteration'))
