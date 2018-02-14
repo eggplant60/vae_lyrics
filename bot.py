@@ -6,6 +6,7 @@
 # from seq2seq_vae import *
 
 import tweepy
+import argparse
 
 ### Import the bot's information
 ### consumer_key, consumer_secret, access_token, access_token_secret
@@ -30,14 +31,20 @@ def generate_lyrics(result_dir, batchsize):
 
 
 if __name__ == "__main__":
-
-    # Authentication
-    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-    auth.set_access_token(access_token, access_token_secret)
-    api = tweepy.API(auth)
+    parser = argparse.ArgumentParser(description='search lyrics similar to the query')
+    parser.add_argument('--quiet', '-q', action='store_true')
+    parser.add_argument('--num', '-n', type=int, default=1)
+    args = parser.parse_args()
 
     # Load Model and generate lyrics
-    body = generate_lyrics('/home/naoya/work/text/vae_lyrics/result_0208_C041', 1)[0]
-    
-    print(body)
-    #api.update_status(body)
+    bodies = generate_lyrics('/home/naoya/work/text/vae_lyrics/result_0208_C041', args.num)
+    for i in range(args.num):
+        print(bodies[i])
+        print()
+        
+    if not args.quiet:
+        # Authentication
+        auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+        auth.set_access_token(access_token, access_token_secret)
+        api = tweepy.API(auth)
+        api.update_status(bodies[0])

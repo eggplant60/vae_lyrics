@@ -63,7 +63,7 @@ class Seq2seq(chainer.Chain):
         self.denoising_rate = denoising_rate
         self.n_latent = n_latent
         self.C = 0
-        self.k = 10
+        self.k = 5 # 10
         self.n_target_vocab = n_target_vocab
         
 
@@ -147,7 +147,7 @@ class Seq2seq(chainer.Chain):
     def decode(self, h, max_length):
         def avoid_unk(wy_data):
             ys_0 = self.xp.argmax(wy_data, axis=1).astype('i')
-            # this is darty
+            # this is darty implementation
             for i in range(ys_0.shape[0]):
                 if ys_0[i] == self.xp.array([UNK], 'i'):
                     wy_data[i, ys_0[i]] = 0.0
@@ -233,7 +233,7 @@ def convert(batch, device):
             'ys': to_device_batch([y for _, y in batch])}
 
 
-class CalculateBleu(chainer.training.Extension):
+class CalculateBleuRouge(chainer.training.Extension):
 
     trigger = 1, 'epoch'
     priority = chainer.training.PRIORITY_WRITER
@@ -246,14 +246,17 @@ class CalculateBleu(chainer.training.Extension):
         self.batch = batch
         self.device = device
         self.max_length = max_length
+        self.rouge = Rouge()
 
     def __call__(self, trainer):
         with chainer.no_backprop_mode():
             references = []
+            references_r = []
             hypotheses = []
             for i in range(0, len(self.test_data), self.batch):
                 sources, targets = zip(*self.test_data[i:i + self.batch])
                 references.extend([[t.tolist()] for t in targets])
+                references_r.extend([' '.join(map(str, t.tolist())) for t in targets])
 
                 sources = [
                     chainer.dataset.to_device(self.device, x) for x in sources]
@@ -264,7 +267,21 @@ class CalculateBleu(chainer.training.Extension):
         bleu = bleu_score.corpus_bleu(
             references, hypotheses,
             smoothing_function=bleu_score.SmoothingFunction().method1)
-        chainer.report({self.key: bleu})
+        chainer.report({self.key[0]: bleu})
+
+        hypotheses_r = [' '.join(map(str, y)) for y in hypotheses]
+                
+        scores = self.rouge.get_scores(hypotheses_r, references_r, avg=True)
+        rouge_l = scores["rouge-l"]
+        chainer.report({self.key[1]: rouge_l["p"]})
+        chainer.report({self.key[2]: rouge_l["r"]})
+        chainer.report({self.key[3]: rouge_l["f"]})
+
+        rouge_1 = scores["rouge-1"]
+        chainer.report({self.key[4]: rouge_1["p"]})
+        chainer.report({self.key[5]: rouge_1["r"]})
+        chainer.report({self.key[6]: rouge_1["f"]})
+
 
         
 class CalculateRouge(chainer.training.Extension):
@@ -301,6 +318,12 @@ class CalculateRouge(chainer.training.Extension):
         chainer.report({self.key[0]: rouge_l["p"]})
         chainer.report({self.key[1]: rouge_l["r"]})
         chainer.report({self.key[2]: rouge_l["f"]})
+
+        rouge_1 = scores["rouge-1"]
+        chainer.report({self.key[3]: rouge_1["p"]})
+        chainer.report({self.key[4]: rouge_1["r"]})
+        chainer.report({self.key[5]: rouge_1["f"]})
+
 
         
 def count_lines(path):
@@ -427,7 +450,7 @@ def main():
     trainer.extend(extensions.PrintReport(
         ['epoch', 'iteration',
          'main/loss', 'main/rec', 'main/lat', 'main/perp',
-         'bleu', 'p', 'r', 'f', 'elapsed_time']),
+         'bleu', 'p', 'r', 'f', 'p1', 'r1', 'f1', 'elapsed_time']),
         trigger=(args.log_interval, 'iteration'))
     trainer.extend(extensions.snapshot_object(
         model, 'model_iter_{.updater.iteration}.npz'),
@@ -450,37 +473,37 @@ def main():
         print('Validation target unknown ratio: %.2f%%' %
               (test_target_unknown * 100))
 
-        # @chainer.training.make_extension()
-        # def translate(trainer):
-        #     source, target = test_data[numpy.random.choice(len(test_data))]
-        #     result = model.translate([model.xp.array(source)])[0]
-
-        #     source_sentence = ' '.join([source_words[x] for x in source])
-        #     target_sentence = ' '.join([target_words[y] for y in target])
-        #     result_sentence = ' '.join([target_words[y] for y in result])
-        #     #print('#  source : ' + source_sentence)
-        #     print('#  result : ' + result_sentence)
-        #     print('#  expect : ' + target_sentence)
-
-        # trainer.extend(
-        #     translate, trigger=(args.validation_interval, 'iteration'))
-        
         @chainer.training.make_extension()
-        def generate(trainer):
-            results = model.generate(5)
-            for i, result in enumerate(results):
-                print('#  result {}: {}'.format(i+1, ' '.join([source_words[x] for x in result])))
-                
+        def translate(trainer):
+            source, target = test_data[numpy.random.choice(len(test_data))]
+            result = model.translate([model.xp.array(source)])[0]
+
+            #source_sentence = ' '.join([source_words[x] for x in source])
+            target_sentence = ' '.join([target_words[y] for y in target])
+            result_sentence = ' '.join([target_words[y] for y in result])
+            #print('#  source : ' + source_sentence)
+            print('#  result : ' + result_sentence)
+            print('#  expect : ' + target_sentence)
+
         trainer.extend(
-            generate, trigger=(args.validation_interval, 'iteration'))
+            translate, trigger=(args.validation_interval, 'iteration'))
         
+        # @chainer.training.make_extension()
+        # def generate(trainer):
+        #     results = model.generate(5)
+        #     for i, result in enumerate(results):
+        #         print('#  result {}: {}'.format(i+1, ' '.join([source_words[x] for x in result])))
+                
+        # trainer.extend(
+        #     generate, trigger=(args.validation_interval, 'iteration'))
+        
+        # trainer.extend(
+        #     CalculateBleu(
+        #         model, test_data, 'bleu', device=args.gpu),
+        #     trigger=(args.validation_interval, 'iteration'))
         trainer.extend(
-            CalculateBleu(
-                model, test_data, 'bleu', device=args.gpu),
-            trigger=(args.validation_interval, 'iteration'))
-        trainer.extend(
-            CalculateRouge(
-                model, test_data, ['p', 'r', 'f'], device=args.gpu),
+            CalculateBleuRouge(
+                model, test_data, ['bleu', 'p', 'r', 'f', 'p1', 'r1', 'f1'], device=args.gpu),
             trigger=(args.validation_interval, 'iteration'))
         
 
@@ -490,11 +513,13 @@ def main():
         #     model.C = 0.0
         # else:
         #     model.C = 0.06 * (updater.epoch - 10) / args.epoch
-        if model.C < 0.5 and updater.epoch > 10:
-            model.C += 0.008
+        #if model.C < 0.5 and updater.epoch > 10:
+        if model.C < 0.5:
+            model.C += 0.001
         print('epoch: {}, C: {},'.format(updater.epoch, model.C))
 
-    trainer.extend(fit_C, trigger=(1, 'epoch'))
+    trainer.extend(fit_C, trigger=(1000, 'iteration'))
+    #trainer.extend(fit_C, trigger=(1, 'epoch'))
 
         
     if args.resume:

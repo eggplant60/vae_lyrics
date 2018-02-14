@@ -13,7 +13,7 @@ from seq2seq_vae import *
 
 class Seq2seq_ride(Seq2seq):
 
-    def out_vector(self, xs):
+    def latent_vector(self, xs):
         batch = len(xs)
         with chainer.no_backprop_mode(), chainer.using_config('train', False):
             xs = [x[::-1] for x in xs]
@@ -22,10 +22,8 @@ class Seq2seq_ride(Seq2seq):
             h_t = F.transpose(h, (1,0,2))
             mu = self.W_mu(h_t)
                 
-        #c_vectors = F.concat(vectors, axis=1) # layer
-        #l_vectors = to_cpu(c_vectors.data)    # to cpu
-        l_vectors = to_cpu(mu.data)    # to cpu
-        return l_vectors
+        latent_vecs = to_cpu(mu.data)    # to cpu
+        return latent_vecs
 
 
     
@@ -62,19 +60,6 @@ def load_model_vocab(result_dir, test_data=None):
     train_target = load_data(target_ids, args_i['TARGET'])
     test_source = load_data(source_ids, args_i['validation_source'])
     test_target = load_data(target_ids, args_i['validation_target'])
-    # assert len(test_source) == len(test_target)
-    # test_data = list(six.moves.zip(test_source, test_target))
-    # test_data = [(s, t) for s, t in test_data if 0 < len(s) and 0 < len(t)]
-    # test_source_unknown = calculate_unknown_ratio(
-    #     [s for s, _ in test_data])
-    # test_target_unknown = calculate_unknown_ratio(
-    #     [t for _, t in test_data])
-
-    # print('Validation data: %d' % len(test_data))
-    # print('Validation source unknown ratio: %.2f%%' %
-    #       (test_source_unknown * 100))
-    # print('Validation target unknown ratio: %.2f%%' %
-    #       (test_target_unknown * 100))
 
     return source_ids, target_ids, \
         train_source, train_target, \
@@ -93,16 +78,23 @@ if __name__ == '__main__':
     test_source, _, \
     model = load_model_vocab(args.RESULT_DIR,
                              test_data=args.test_data)
+    n_source = len(test_source)
 
-    # save vector    
-    xs = [ model.xp.array(source) for source in test_source[0:1000] ]
-    vector = model.out_vector(xs)
-    print(vector)
-
+    # save latent vectors
+    latent_vecs = []
+    batchsize = 50
+    for i in range(0, n_source, batchsize):
+        xs = [ model.xp.array(source)
+               for source in test_source[i:min(i+batchsize, n_source)] ]
+        vec = model.latent_vector(xs)
+        latent_vecs.append(vec)
+        #print(vector)
+        
+    latent_vecs = numpy.concatenate(latent_vecs, axis=0) # list -> numpy.ndarray
     pkl_file = os.path.join(args.RESULT_DIR, 'vector.pkl')
     
     with open(pkl_file, 'wb') as f:
-        pickle.dump(vector, f)
+        pickle.dump(latent_vecs, f)
 
     print('dump on \'{}\''.format(pkl_file))
 

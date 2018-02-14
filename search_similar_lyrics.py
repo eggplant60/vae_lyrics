@@ -10,7 +10,8 @@ from chainer.cuda import to_cpu
 
 from seq2seq_vae import *
 from extract_vector_vae import *
-import scipy.spatial.distance as dis
+from scipy.spatial.distance import euclidean, cosine
+
 
 
 class Seq2seq_ride(Seq2seq):
@@ -43,9 +44,9 @@ if __name__ == '__main__':
     train_source, _, \
     test_source, _, model = load_model_vocab(args.result_dir)
 
-    query_source = load_data(source_ids, args.query)
+    query_source = load_data(source_ids, args.query)[:100]
     xs = [ model.xp.array(source) for source in query_source ]
-    q = model.out_vector(xs)
+    qs = model.out_vector(xs)
 
     vs = []
     for i in range(0,len(train_source),50):
@@ -53,21 +54,27 @@ if __name__ == '__main__':
         vs.extend(model.out_vector(xs))
     print(len(vs))
 
-
-    similarity = numpy.array([dis.cosine(q, v) for v in vs])
-    similar_idx = numpy.argsort(similarity)[:5] # 距離の近い順
-
     source_words = {i: w for w, i in source_ids.items()}
-
     with open(args.query, 'r') as f:
-        print('query: {}'.format(f.readlines()))
-    
-    for i, idx in enumerate(similar_idx):
-        decode_string = ''.join([source_words[x]
-                                 for x in train_source[idx]]).replace('/','\n')
-        print('No. {}: similarity: {}, {} words'.\
-              format(i+1, similarity[idx], len(train_source[idx])))
-        print(decode_string)
-        print()
+        query_txt = f.readlines()
+
+
+    for i in range(len(query_source)):
+
+        print('-' * 80)
+        print('query {}'.format(i+1))
+        print('{}'.format(query_txt[i].replace(' / ', '\n')))
+
+        similarity = numpy.array([cosine(qs[i,:], v) for v in vs])
+        #similarity = numpy.array([euclidean(qs[i,:], v) for v in vs])
+        similar_idx = numpy.argsort(similarity)[:3] # 距離の近い順
+
+        for num, idx in enumerate(similar_idx):
+            decode_string = ''.join([source_words[x]
+                                     for x in train_source[idx]]).replace('/','\n')
+            print('No. {}: similarity: {}, {} words'.\
+                  format(num+1, similarity[idx], len(train_source[idx])))
+            print(decode_string)
+            print()
 
     

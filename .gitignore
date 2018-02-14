@@ -1,4 +1,7 @@
 result*
+data*
 *.pkl
 .ipynb_checkpoints
 __pycache__
+password_bot.py
+*.pyc
