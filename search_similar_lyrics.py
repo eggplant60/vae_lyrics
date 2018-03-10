@@ -12,31 +12,11 @@ from seq2seq_vae import *
 from extract_vector_vae import *
 from scipy.spatial.distance import euclidean, cosine
 
-
-
-class Seq2seq_ride(Seq2seq):
-
-    def out_vector(self, xs):
-        batch = len(xs)
-        with chainer.no_backprop_mode(), chainer.using_config('train', False):
-            xs = [x[::-1] for x in xs]
-            exs = sequence_embed(self.embed_x, xs)
-            h, _ = self.encoder(None, exs)
-            h_t = F.transpose(h, (1,0,2))
-            mu = self.W_mu(h_t)
-                
-        #c_vectors = F.concat(vectors, axis=1) # layer
-        #l_vectors = to_cpu(c_vectors.data)    # to cpu
-        l_vectors = to_cpu(mu.data)    # to cpu
-        return l_vectors
-
-
-    
     
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='search lyrics similar to the query')
-    parser.add_argument('--result_dir', '-r', type=str, default='result_0208_C041')
+    parser.add_argument('--result_dir', '-r', type=str, default='result_0209_C024')
     parser.add_argument('--query', '-q', type=str, required=True)
     args = parser.parse_args()
     
@@ -46,12 +26,12 @@ if __name__ == '__main__':
 
     query_source = load_data(source_ids, args.query)[:100]
     xs = [ model.xp.array(source) for source in query_source ]
-    qs = model.out_vector(xs)
+    qs = model.latent_vector(xs)
 
     vs = []
     for i in range(0,len(train_source),50):
         xs = [ model.xp.array(source) for source in train_source[i:i+50] ]
-        vs.extend(model.out_vector(xs))
+        vs.extend(model.latent_vector(xs))
     print(len(vs))
 
     source_words = {i: w for w, i in source_ids.items()}
