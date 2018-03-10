@@ -11,7 +11,7 @@ from chainer.cuda import to_cpu
 from seq2seq_vae import *
 
 
-class Seq2seq_ride(Seq2seq):
+class Seq2seq_extended(Seq2seq):
 
     def latent_vector(self, xs):
         batch = len(xs)
@@ -25,9 +25,20 @@ class Seq2seq_ride(Seq2seq):
         latent_vecs = to_cpu(mu.data)    # to cpu
         return latent_vecs
 
+    
+    def generate_by_latent(self, latent_vecs, max_length=100):
+        with chainer.no_backprop_mode(), chainer.using_config('train', False):
+            Wz = self.W_h(latent_vecs)
+            hys = F.split_axis(Wz, self.n_layers, 1)
+            h = F.concat([F.expand_dims(hy,0) for hy in hys], 0)
+            outs = self.decode(h, max_length)
+
+        return outs
+    
+
 
     
-def load_model_vocab(result_dir, test_data=None):
+def load_model_vocab(result_dir, test_data=None, gpu=0):
 
     with open(os.path.join(result_dir, 'args.txt'), 'r') as f:
         args_i = json.load(f)
@@ -43,14 +54,17 @@ def load_model_vocab(result_dir, test_data=None):
     source_ids = load_vocabulary(args_i['SOURCE_VOCAB'])
     target_ids = load_vocabulary(args_i['TARGET_VOCAB'])
 
-    model = Seq2seq_ride(args_i['layer'], len(source_ids), len(target_ids),
-                         args_i['unit'], args_i['n_embed'], args_i['n_latent'],
-                         args_i['type_unit'], args_i['word_dropout'],
-                         args_i['denoising_rate'])
+    model = Seq2seq_extended(args_i['layer'], len(source_ids), len(target_ids),
+                             args_i['unit'], args_i['n_embed'], args_i['n_latent'],
+                             args_i['type_unit'], args_i['word_dropout'],
+                             args_i['denoising_rate'])
     
-    if args_i['gpu'] >= 0:
-        chainer.cuda.get_device(args_i['gpu']).use()
-        model.to_gpu(args_i['gpu'])
+    # if args_i['gpu'] >= 0:
+    #     chainer.cuda.get_device(args_i['gpu']).use()
+    #     model.to_gpu(args_i['gpu'])
+    if gpu >= 0:
+        chainer.cuda.get_device(gpu).use()
+        model.to_gpu(gpu)
         
     if args_i['resume']:
         serializers.load_npz(args_i['resume'], model)
