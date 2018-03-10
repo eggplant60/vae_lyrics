@@ -1,7 +1,10 @@
 result*
 data*
-*.pkl
+old*
 .ipynb_checkpoints
 __pycache__
 password_bot.py
+*.pkl
 *.pyc
+*.txt
+*.config
