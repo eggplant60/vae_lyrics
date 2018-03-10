@@ -87,7 +87,7 @@ class Seq2seq(chainer.Chain):
         hx_t = F.transpose(hx, (1,0,2))  # batch x layer x n_units
         mu = self.W_mu(hx_t) # batch x n_latent
         ln_var = self.W_ln_var(hx_t)
-        #print(mu.shape)
+        #print('{},{}'.format(mu.shape,ln_var.shape))
         #print(hx_t.shape)
 
         rec_loss = 0
@@ -510,7 +510,8 @@ def main():
     @chainer.training.make_extension()
     def fit_C(trainer):
         if model.C < 0.5 and updater.epoch > 5:
-            model.C += 0.002
+        #if model.C < 0.5:
+            model.C += 0.001
         print('epoch: {}, C: {},'.format(updater.epoch, model.C))
 
     trainer.extend(fit_C, trigger=(1000, 'iteration'))
