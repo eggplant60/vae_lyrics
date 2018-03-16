@@ -2,18 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import pickle
-import os
-from pprint import pprint
 
-from chainer.cuda import to_cpu
-
-from seq2seq_vae import *
-from extract_vector_vae import *
+from lstm_vae import load_data
+from extract_vector_vae import load_model_vocab
 from scipy.spatial.distance import euclidean, cosine
 
-    
-    
+        
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='interpolate between given two query')
     parser.add_argument('--result_dir', '-r', type=str, default='result_0209_C024')

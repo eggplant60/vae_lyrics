@@ -11,7 +11,8 @@ import argparse
 ### Import the bot's information
 ### consumer_key, consumer_secret, access_token, access_token_secret
 from password_bot import *
-from extract_vector_vae import *
+from extract_vector_vae import load_model_vocab
+
 
 
 def generate_lyrics(result_dir, batchsize):

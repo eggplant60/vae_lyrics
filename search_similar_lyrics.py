@@ -2,16 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import pickle
-import os
-from pprint import pprint
 
-from chainer.cuda import to_cpu
-
-from seq2seq_vae import *
-from extract_vector_vae import *
+from net import Seq2seq
+from extract_vector_vae import load_model_vocab
+from lstm_vae import load_data
 from scipy.spatial.distance import euclidean, cosine
 
+import numpy as np
     
     
 if __name__ == '__main__':
@@ -45,9 +42,9 @@ if __name__ == '__main__':
         print('query {}'.format(i+1))
         print('{}'.format(query_txt[i].replace(' / ', '\n')))
 
-        similarity = numpy.array([cosine(qs[i,:], v) for v in vs])
+        similarity = np.array([cosine(qs[i,:], v) for v in vs])
         #similarity = numpy.array([euclidean(qs[i,:], v) for v in vs])
-        similar_idx = numpy.argsort(similarity)[:3] # 距離の近い順
+        similar_idx = np.argsort(similarity)[:3] # 距離の近い順
 
         for num, idx in enumerate(similar_idx):
             decode_string = ''.join([source_words[x]
