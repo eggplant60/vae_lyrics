@@ -20,11 +20,11 @@ $ ./create_dataset.sh
 ### 学習
 
 ```
-$ ./lstm_vae.sh
+$ ./train.sh
 ```
 または直接
 ```
-$ ./seq2seq_vae.py
+$ ./lstm_vae.py SOURCE TARGET SOURCE_VOCAB TARGET_VOCAB
 ```
 
 ### Loss や BLEU 値の確認
